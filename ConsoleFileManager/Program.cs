@@ -5,6 +5,10 @@ using System.Threading;
 
 namespace ConsoleFileManager
 {
+    enum Operation
+    {
+        Copy, Move
+    }
     public class SerializeClass
     {
         public string Path { get; set; }
@@ -94,6 +98,7 @@ namespace ConsoleFileManager
         {
             try
             {
+                Console.Clear();
                 dirs = Directory.GetDirectories(path);
                 files = Directory.GetFiles(path);
 
@@ -102,8 +107,6 @@ namespace ConsoleFileManager
                     Console.WriteLine("Пустая дирректория");
                 }
                 list = CombineArray(dirs, files);
-
-                Console.Clear();
 
                 pages = Convert.ToInt32(Math.Round(((float)list.Length / pageSize), MidpointRounding.ToPositiveInfinity));
                 if (page > pages)
@@ -160,7 +163,6 @@ namespace ConsoleFileManager
         {
             int counter = 0;
             int iterator = 0;
-            //вычисление количества разделителей для инициализации массива
             for (int i = 0; i < text.Length; i++)
             {
                 if (text[i] == separator)
@@ -168,10 +170,8 @@ namespace ConsoleFileManager
                     counter++;
                 }
             }
-            //инициализация массива строк
             string[] result = new string[counter + 1];
             counter = 0;
-            //запись символов в массив строк
             for (int i = 0; i < text.Length; i++)
             {
                 if (text[i] == separator)
@@ -197,7 +197,6 @@ namespace ConsoleFileManager
                     continue;
                 }
             }
-            //избавление от возможных null в массиве
             for (int i = 0; i < result.Length; i++)
             {
                 if (result[i] == null)
@@ -230,6 +229,10 @@ namespace ConsoleFileManager
         //Сравнение текста по регистру
         static bool IsEquals(string input)
         {
+            if (Path.IsPathRooted(input))
+            {
+                return true;
+            }
             for (int i = 0; i < dirs.Length; i++)
             {
                 string reference = Path.GetFileName(dirs[i]);
@@ -254,21 +257,34 @@ namespace ConsoleFileManager
         }
 
         //Копирование директории
-        static void CopyDirectory(string path, string pathCopy)
+        static void CopyMoveDirectory(string path, string pathCopy, Operation op)
         {
             Directory.CreateDirectory(pathCopy);
             dirs = Directory.GetDirectories(path);
             files = Directory.GetFiles(path);
             for (int i = 0; i < files.Length; i++)
             {
-                File.Copy(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])));
+                switch (op)
+                {
+                    case Operation.Copy:
+                        File.Copy(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])));
+                        break;
+                    case Operation.Move:
+                        File.Move(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])));
+                        break;
+                    default:
+                        break;
+                }
             }
             for (int i = 0; i < dirs.Length; i++)
             {
-                CopyDirectory(Path.Combine(path, dirs[i]), Path.Combine(pathCopy, Path.GetFileName(dirs[i])));
+                CopyMoveDirectory(Path.Combine(path, dirs[i]), Path.Combine(pathCopy, Path.GetFileName(dirs[i])), op);
+            }
+            if (op == Operation.Move)
+            {
+                Directory.Delete(path);
             }
         }
-
 
         static void Main()
         {
@@ -303,7 +319,7 @@ namespace ConsoleFileManager
             {
                 string input = Console.ReadLine();
                 string command = SeparateCommand(input);
-                string[] args = SeparateString(input, '\'');
+                string[] args = SeparateString(input, '\"');
 
                 try
                 {
@@ -353,7 +369,7 @@ namespace ConsoleFileManager
                             if (commandText == "yes")
                             {
                                 FileInfo info = new FileInfo(Path.Combine(path, args[1]));
-                                if (info.Attributes == FileAttributes.Directory)
+                                if (info.Attributes.HasFlag(FileAttributes.Directory))
                                 {
                                     Directory.Delete(Path.Combine(path, args[1]), true);
                                 }
@@ -403,9 +419,9 @@ namespace ConsoleFileManager
                                 break;
                             }
                             FileInfo info1 = new FileInfo(Path.Combine(path, args[1]));
-                            if (info1.Attributes == FileAttributes.Directory)
+                            if (info1.Attributes.HasFlag(FileAttributes.Directory))
                             {
-                                CopyDirectory(Path.Combine(path, args[1]), Path.Combine(path, args[3]));
+                                CopyMoveDirectory(Path.Combine(path, args[1]), Path.Combine(path, args[3]), Operation.Copy);
                             }
                             else
                             {
@@ -415,6 +431,35 @@ namespace ConsoleFileManager
                             Thread.Sleep(1000);
                             Print(path, page);
                             break;
+
+                        case "move":
+                            if (!IsEquals(args[1]))
+                            {
+                                Console.WriteLine("Файл или дирректория не найдены");
+                                break;
+                            }
+                            FileInfo info2 = new FileInfo(Path.Combine(path, args[1]));
+                            if (info2.Attributes.HasFlag(FileAttributes.Directory))
+                            {
+                                CopyMoveDirectory(Path.Combine(path, args[1]), Path.Combine(path, args[3]), Operation.Move);
+                            }
+                            else
+                            {
+                                File.Move(Path.Combine(path, args[1]), Path.Combine(path, args[3]));
+                            }
+                            if (Path.GetDirectoryName(Path.Combine(path, args[1])) == Path.GetDirectoryName(Path.Combine(path, args[3])))
+                            {
+                                Console.WriteLine("Успешно переименовано");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Успешно перемещено");
+                            }
+
+                            Thread.Sleep(1000);
+                            Print(path, page);
+                            break;
+
 
                         case "exit":
                             return;
@@ -476,14 +521,14 @@ namespace ConsoleFileManager
                     }
 
                 }
-                //catch (IndexOutOfRangeException)
-                //{
-                //    Console.WriteLine("Команда введена неверно. Вводите путь через одинарные ковычки");
-                //}
-                //catch (Exception ex)
-                //{
-                //    Console.WriteLine(ex.Message);
-                //}
+                catch (IndexOutOfRangeException)
+                {
+                    Console.WriteLine("Команда введена неверно. Вводите путь через двойные ковычки");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
                 finally
                 {
                     CommandLine(path);
