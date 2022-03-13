@@ -2,6 +2,7 @@
 using System.IO;
 using System.Xml.Serialization;
 using System.Threading;
+using System.Diagnostics;
 
 namespace ConsoleFileManager
 {
@@ -25,7 +26,9 @@ namespace ConsoleFileManager
         static string system = Environment.GetFolderPath(Environment.SpecialFolder.System);
         static string path = Path.GetPathRoot(system);
         static int pages;
-        const string serializeFileName = "serialize.xml";
+        const string serializeFileName = "config.xml";
+        const string logFileName = "log_error.txt";
+
 
         //Метод, определяющий общий размер файлов в дирректории
         static long SizeAllFiles(DirectoryInfo info)
@@ -37,6 +40,38 @@ namespace ConsoleFileManager
                 size += files[i].Length;
             }
             return size;
+        }
+
+
+        static void ListInfoFromPrint(int page)
+        {
+            DirectoryInfo info = new DirectoryInfo(path);
+            Console.WriteLine();
+            Console.WriteLine($"Страница: {page} из {pages}");
+            Console.WriteLine($"Количество элементов на странице: {pageSize}");
+            Console.WriteLine($"Время создания: {info.CreationTime}");
+            Console.WriteLine($"Время изменения: {info.LastWriteTime}");
+            Console.WriteLine($"Количество файлов: {files.Length}");
+            Console.WriteLine($"Количество директорий: {dirs.Length}.");
+            Console.WriteLine($"Размер файлов в каталоге: {ConvertSize(SizeAllFiles(info))}");
+        }
+
+
+        public static T[] CombineArray<T>(T[] array1, T[] array2)
+        {
+            T[] result = new T[array1.Length + array2.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                if (i < array1.Length)
+                {
+                    result[i] = array1[i];
+                }
+                else
+                {
+                    result[i] = array2[i - array1.Length];
+                }
+            }
+            return result;
         }
 
 
@@ -71,27 +106,12 @@ namespace ConsoleFileManager
             }
         }
 
+
         static void CommandLine(string path)
         {
             Console.Write($"\n{path}>");
         }
 
-        static T[] CombineArray<T>(T[] array1, T[] array2)
-        {
-            T[] result = new T[array1.Length + array2.Length];
-            for (int i = 0; i < result.Length; i++)
-            {
-                if (i < array1.Length)
-                {
-                    result[i] = array1[i];
-                }
-                else
-                {
-                    result[i] = array2[i - array1.Length];
-                }
-            }
-            return result;
-        }
 
         //Вывод списка файлов и дирректорий
         static void Print(string path, int page)
@@ -99,6 +119,7 @@ namespace ConsoleFileManager
             try
             {
                 Console.Clear();
+                DirectoryInfo directoryInfo = new DirectoryInfo(path);
                 dirs = Directory.GetDirectories(path);
                 files = Directory.GetFiles(path);
 
@@ -137,94 +158,19 @@ namespace ConsoleFileManager
                     Console.Write(" ");
                     Console.BackgroundColor = ConsoleColor.Black;
                     Console.Write($" {Path.GetFileName(list[i])}\n");
-
                 }
+                ListInfoFromPrint(page);
 
-                DirectoryInfo info = new DirectoryInfo(path);
-                Console.WriteLine();
-                Console.WriteLine($"Страница: {page} из {pages}");
-                Console.WriteLine($"Время создания: {info.CreationTime}");
-                Console.WriteLine($"Время изменения: {info.LastWriteTime}");
-                Console.WriteLine($"Количество файлов: {files.Length}");
-                Console.WriteLine($"Количество директорий: {dirs.Length}.");
-                Console.WriteLine($"Размер файлов в каталоге: {ConvertSize(SizeAllFiles(info))}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                File.AppendAllText(logFileName, $"{DateTime.Now} - {ex.GetType()} - {ex.Source} - {ex.Message} - PrintFilesMethod\n\n");
                 DirectoryInfo directoryInfo = new DirectoryInfo(path);
                 Program.path = directoryInfo?.Parent?.FullName;
             }
         }
 
-
-        //Метод, возвращающий массив строк из строки через символ разделитель
-        static string[] SeparateString(string text, char separator)
-        {
-            int counter = 0;
-            int iterator = 0;
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] == separator)
-                {
-                    counter++;
-                }
-            }
-            string[] result = new string[counter + 1];
-            counter = 0;
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] == separator)
-                {
-                    char[] a = new char[i - iterator];
-                    for (int j = 0; j < a.Length; j++)
-                    {
-                        a[j] = text[j + iterator];
-                    }
-                    result[counter] = new string(a);
-                    counter++;
-                    iterator = i + 1;
-                    continue;
-                }
-                if (i == text.Length - 1)
-                {
-                    char[] a = new char[i - iterator + 1];
-                    for (int j = 0; j < a.Length; j++)
-                    {
-                        a[j] = text[j + iterator];
-                    }
-                    result[counter] = new string(a);
-                    continue;
-                }
-            }
-            for (int i = 0; i < result.Length; i++)
-            {
-                if (result[i] == null)
-                {
-                    result[i] = new string(String.Empty);
-                }
-            }
-            return result;
-        }
-
-
-        //Метод, получения подстроки до первого пробела
-        static string SeparateCommand(string text)
-        {
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] == ' ')
-                {
-                    char[] chars = new char[i];
-                    for (int j = 0; j < chars.Length; j++)
-                    {
-                        chars[j] = text[j];
-                    }
-                    return new string(chars);
-                }
-            }
-            return text;
-        }
 
         //Сравнение текста по регистру
         static bool IsEquals(string input)
@@ -246,6 +192,7 @@ namespace ConsoleFileManager
             return false;
         }
 
+
         //Сериализация
         static void Serialize(SerializeClass serialize)
         {
@@ -255,6 +202,7 @@ namespace ConsoleFileManager
             string xml = writer.ToString();
             File.WriteAllText(serializeFileName, xml);
         }
+
 
         //Копирование директории
         static void CopyMoveDirectory(string path, string pathCopy, Operation op)
@@ -267,10 +215,10 @@ namespace ConsoleFileManager
                 switch (op)
                 {
                     case Operation.Copy:
-                        File.Copy(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])));
+                        File.Copy(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])), true);
                         break;
                     case Operation.Move:
-                        File.Move(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])));
+                        File.Move(files[i], Path.Combine(pathCopy, Path.GetFileName(files[i])), true);
                         break;
                     default:
                         break;
@@ -286,11 +234,13 @@ namespace ConsoleFileManager
             }
         }
 
+
         static void Main()
         {
             //Команды при запуске программы. Десериализация и вывод списка файлов, дирректорий, информации о дирректории
             SerializeClass serialize = new SerializeClass();
             int page = 1;
+
             if (File.Exists(serializeFileName))
             {
                 try
@@ -307,19 +257,31 @@ namespace ConsoleFileManager
                 {
                     Console.WriteLine($"Произошла ошибка при десериализации: {ex.Message}\n" +
                         $"Для продолжения нажмите любую клавишу.");
+                    File.AppendAllText(logFileName, $"{DateTime.Now} - {ex.Message} - Ошибка десериализации\n\n");
                     Console.ReadKey(true);
                 }
             }
+            else
+            {
+                serialize.Path = path;
+                serialize.PageSize = pageSize;
+                serialize.Page = page;
+                Serialize(serialize);
+            }
+
             Print(path, page);
             Console.WriteLine("\nЧтобы посмотреть список команд введите cmdlist");
             CommandLine(path);
+
+
+
 
             //Цикл для ввода команд
             while (true)
             {
                 string input = Console.ReadLine();
-                string command = SeparateCommand(input);
-                string[] args = SeparateString(input, '\"');
+                string command = StringMethods.RemoveAfterChar(input, ' ');
+                string[] args = StringMethods.Split(input, '\"');
 
                 try
                 {
@@ -338,6 +300,7 @@ namespace ConsoleFileManager
                             serialize.Path = path;
                             Serialize(serialize);
                             break;
+
 
                         case "back":
                             page = 1;
@@ -381,9 +344,11 @@ namespace ConsoleFileManager
                             Print(path, page);
                             break;
 
+
                         case "clear":
                             Print(path, page);
                             break;
+
 
                         case "pn":
                             if (page < pages)
@@ -395,6 +360,7 @@ namespace ConsoleFileManager
                             Serialize(serialize);
                             break;
 
+
                         case "pp":
                             if (page > 1)
                             {
@@ -405,12 +371,14 @@ namespace ConsoleFileManager
                             Serialize(serialize);
                             break;
 
+
                         case "p":
                             page = int.Parse(args[1]);
                             Print(path, page);
                             serialize.Page = page;
                             Serialize(serialize);
                             break;
+
 
                         case "copy":
                             if (!IsEquals(args[1]))
@@ -425,12 +393,13 @@ namespace ConsoleFileManager
                             }
                             else
                             {
-                                File.Copy(Path.Combine(path, args[1]), Path.Combine(path, args[3]));
+                                File.Copy(Path.Combine(path, args[1]), Path.Combine(path, args[3]), true);
                             }
                             Console.WriteLine("Успешно скопировано");
                             Thread.Sleep(1000);
                             Print(path, page);
                             break;
+
 
                         case "move":
                             if (!IsEquals(args[1]))
@@ -464,12 +433,14 @@ namespace ConsoleFileManager
                         case "exit":
                             return;
 
+
                         case "pagesize":
                             pageSize = int.Parse(args[1]);
                             Print(path, page);
                             serialize.PageSize = pageSize;
                             Serialize(serialize);
                             break;
+
 
                         case "info":
                             if (!IsEquals(args[1]))
@@ -495,9 +466,26 @@ namespace ConsoleFileManager
                             Console.WriteLine($"Время создания: {fileInfo.CreationTime}");
                             break;
 
+
+                        case "start":
+                            if (!IsEquals(args[1]))
+                            {
+                                Console.WriteLine("Файл или дирректория не найдены");
+                                break;
+                            }
+                            var process = new Process();
+                            process.StartInfo = new ProcessStartInfo(Path.Combine(path, args[1]))
+                            {
+                                UseShellExecute = true
+                            };
+                            process.Start();
+                            break;
+
+
                         case "":
                             Console.WriteLine($"Команда не распознана.");
                             break;
+
 
                         case "cmdlist":
                             Console.WriteLine("cd - переход к следующей дирректории\n" +
@@ -505,15 +493,17 @@ namespace ConsoleFileManager
                                 "mkdir - создание дирректории\n" +
                                 "delete - удаление\n" +
                                 "copy - копирование\n" +
-                                "move - перемещение\n" +
+                                "move - перемещение\\перименование\n" +
                                 "clear - очистка консоли\n" +
                                 "pn - следующая страница\n" +
                                 "pp - предыдущая страница\n" +
                                 "p 'x' - переход на \'x\' страницу\n" +
                                 "exit - выход из программы\n" +
                                 "info - информация о файле или дирректории\n" +
-                                "pagesize - изменить количество элементов на странице\n");
+                                "pagesize - изменить количество элементов на странице\n" +
+                                "start - запуск файла\n");
                             break;
+
 
                         default:
                             Console.WriteLine($"Команда \"{command}\" не распознана.");
@@ -521,13 +511,16 @@ namespace ConsoleFileManager
                     }
 
                 }
-                catch (IndexOutOfRangeException)
+                catch (IndexOutOfRangeException ex)
                 {
-                    Console.WriteLine("Команда введена неверно. Вводите путь через двойные ковычки");
+                    string text = "Команда введена неверно. Вводите путь через двойные ковычки";
+                    Console.WriteLine(text);
+                    File.AppendAllText(logFileName, $"{DateTime.Now} - {ex} - {text} - CommandMethod\n\n");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    Console.WriteLine($"Ошибка: {ex.Message}");
+                    File.AppendAllText(logFileName, $"{DateTime.Now} - {ex.GetType()} - {ex.Source} - {ex.Message} - CommandMethod\n\n");
                 }
                 finally
                 {
