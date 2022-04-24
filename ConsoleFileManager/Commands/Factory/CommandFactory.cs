@@ -21,8 +21,9 @@ namespace ConsoleFileManager.Commands.Factory
                 "copy" => new CopyCommand(),
                 "move" => new MoveCommand(),
                 "start" => new StartCommand(),
-                "setattribute" => new SetAtributeCommand(),
-                "removeattribute" => new RemoveAtributeCommand(),
+                "add_a" => new SetAtributeCommand(),
+                "del_a" => new RemoveAtributeCommand(),
+                "newfile" => new NewFileCommand(),
                 _ => new UnknownCommand()
             };
         }

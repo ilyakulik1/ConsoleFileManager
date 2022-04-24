@@ -8,9 +8,6 @@ namespace ConsoleFileManager.Information
     {
         private List<string> _arguments = new List<string>(4);
         public List<string> Arguments { get { return _arguments; } }
-        public string Command { get; }
-        public string FirstArgument { get; }
-        public string SecondArgument { get; }
         public CommandArgumentsGetter(string input)
         {
             try

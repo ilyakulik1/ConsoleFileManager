@@ -23,8 +23,8 @@ namespace ConsoleFileManager.Commands
             builder.AppendLine("start - запуск файла");
             builder.AppendLine("search - поиск файла в каталоге");
             builder.AppendLine("searchall - поиск файла в каталоге и во вложенных папках");
-            builder.AppendLine("setattribute - установить аттрибут ( Hidden, ReadOnly, Archive, System )");
-            builder.AppendLine("removeattribute - удалить аттрибут ( Hidden, ReadOnly, Archive, System )");
+            builder.AppendLine("add_a - установить аттрибут ( Hidden, ReadOnly, Archive, System )");
+            builder.AppendLine("del_a - удалить аттрибут ( Hidden, ReadOnly, Archive, System )");
             ConsolePrinter.WriteLine(builder.ToString());
         }
     }
